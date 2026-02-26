@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from scipy.fft import fft, fftfreq
 from scipy import signal, stats
 import csv
-    
+from scipy.ndimage import gaussian_filter1d   
+
 SAMPLES = 1000
 OVERSAMPLING = 1
 
@@ -275,15 +276,16 @@ def FIR_filter(times, V, name, raw_V):
     
     return times, S, SNR
 
-def calc_radius(S, resis, rotation, times):
+def calc_radius(S, resis, times):
     dI = np.zeros(len(S))
     current = np.divide(S, resis)
-    distances = np.multiply(times, rotation)
+    current_smoothed = gaussian_filter1d(current, sigma=5)# smoothing the current curve
+    distances = np.multiply(times, V_DISK_NM_NS)
     dt = times[1] - times[0]
     
     for i in range(len(S)):
         if 0 < i < len(S) - 1:
-            dI[i] = (current[i+1] - current[i-1]) / (2*dt)
+            dI[i] = (current_smoothed[i+1] - current_smoothed[i-1]) / (2*dt)
             
     return dI, distances
 
@@ -309,7 +311,7 @@ if __name__ == "__main__":
         times, S, V = measure(100, v_range=V_range, name=f"2.5uA_gain_{i}")
         times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
         
-        dI, distances = calc_radius(S=S, resis=1000, rotation=1, times=times)
+        dI, distances = calc_radius(S=S, resis=1000, times=times)
         
         # Assuming dI and distances are numpy arrays of the same length
         dI = np.array(dI)  # Replace with your intensity data
