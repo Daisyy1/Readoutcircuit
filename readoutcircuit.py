@@ -21,6 +21,10 @@ DISK_RADIUS_MM = 20
 V_DISK = (2 * np.pi * DISK_RADIUS_MM * RPM ) / 60
 V_DISK_NM_NS = V_DISK * 1e6 / 1e9
 
+MODE = "TIA"#"SHUNT" or "TIA"
+R_FEEDBACK = 33000
+R_SHUNT = 1000
+POST_GAIN = 1
 def get_timebase(device, wanted_time_interval):
     current_timebase = 1
     time_interval = c_int32(0)
@@ -49,8 +53,8 @@ def measure(n, v_range, name):
         
         res = ps2000.ps2000_set_sig_gen_built_in(
             device.handle,
-            1_000_000,
-            2_000_000,
+            350_000,
+            700_000,
             1,# square wave
             16.7,
             16.7,
@@ -80,7 +84,7 @@ def measure(n, v_range, name):
         res = ps2000.ps2000_set_trigger(
             device.handle,
             picoEnum.PICO_CHANNEL['PICO_CHANNEL_A'],
-            c_int16(4000), # This value should be chosen between +32767 and -32767, where the largest number is the max voltage of the chosen window size.
+            c_int16(500), # This value should be chosen between +32767 and -32767, where the largest number is the max voltage of the chosen window size.
             0,
             -50,
             0
@@ -240,7 +244,7 @@ def FIR_filter(times, V, name, raw_V):
     
     numtaps = int(N/2) if (int(N / 2) % 2) != 0 else int(N / 2) + 1
     
-    h = signal.firwin(numtaps=numtaps, cutoff=3 * 10 ** 6, window="blackman", fs=1/T)
+    h = signal.firwin(numtaps=numtaps, cutoff=2 * 10 ** 6, window="blackman", fs=1/T)
     S = np.convolve(V, h, mode="valid")
     
     trim_size = (numtaps - 1) // 2
@@ -276,9 +280,13 @@ def FIR_filter(times, V, name, raw_V):
     
     return times, S, SNR
 
-def calc_radius(S, resis, times):
+def calc_radius(S, times):
+    if MODE == "TIA":
+        r_eff = R_FEEDBACK * POST_GAIN
+    else:
+        r_eff = R_SHUNT * POST_GAIN
     dI = np.zeros(len(S))
-    current = np.divide(S, resis)
+    current = np.divide(S, 1000 * r_eff)
     current_smoothed = gaussian_filter1d(current, sigma=5)# smoothing the current curve
     distances = np.multiply(times, V_DISK_NM_NS)
     dt = times[1] - times[0]
@@ -311,7 +319,7 @@ if __name__ == "__main__":
         times, S, V = measure(100, v_range=V_range, name=f"2.5uA_gain_{i}")
         times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
         
-        dI, distances = calc_radius(S=S, resis=1000, times=times)
+        dI, distances = calc_radius(S=S, times=times)
         
         # Assuming dI and distances are numpy arrays of the same length
         dI = np.array(dI)  # Replace with your intensity data
