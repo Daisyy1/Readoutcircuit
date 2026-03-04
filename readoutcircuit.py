@@ -22,7 +22,7 @@ V_DISK = (2 * np.pi * DISK_RADIUS_MM * RPM ) / 60
 V_DISK_NM_NS = V_DISK * 1e6 / 1e9
 
 MODE = "TIA"#"SHUNT" or "TIA"
-R_FEEDBACK = 33000
+R_FEEDBACK = 20000
 R_SHUNT = 1000
 POST_GAIN = 1
 def get_timebase(device, wanted_time_interval):
@@ -53,8 +53,8 @@ def measure(n, v_range, name):
         
         res = ps2000.ps2000_set_sig_gen_built_in(
             device.handle,
-            350_000,
-            700_000,
+            750_000,
+            1500_000,
             1,# square wave
             16.7,
             16.7,
@@ -109,13 +109,14 @@ def measure(n, v_range, name):
                 
             times = (c_int32 * SAMPLES)()
             buffer_a = (c_int16 * SAMPLES)()
+            buffer_b = (c_int16 * SAMPLES)()
             overflow = c_byte(0)
             
             res = ps2000.ps2000_get_times_and_values(
                 device.handle,
                 byref(times),
                 buffer_a,
-                None,
+                buffer_b,
                 None,
                 None,
                 byref(overflow),
@@ -132,7 +133,12 @@ def measure(n, v_range, name):
                 v_range,
                 c_int16(32767)
             )
-            return list(times), list(channel_a_mV)
+            channel_b_mV = adc2mV(
+                buffer_b,
+                v_range,
+                c_int16(32767)
+            )
+            return list(times), list(channel_b_mV)
 
         times, voltages = run()
         
@@ -317,7 +323,7 @@ if __name__ == "__main__":
     
     for i in range(nr_of_loops):
         times, S, V = measure(100, v_range=V_range, name=f"2.5uA_gain_{i}")
-        times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
+        #times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
         
         dI, distances = calc_radius(S=S, times=times)
         
