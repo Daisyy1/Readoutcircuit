@@ -66,11 +66,19 @@ def measure(n, v_range, name):
         assert_pico2000_ok(res)
         
         sleep(0.1)
-        
+        res = ps2000.ps2000_set_channel(
+            device.handle,
+            picoEnum.PICO_CHANNEL['PICO_CHANNEL_A'],
+            True,
+            picoEnum.PICO_COUPLING['PICO_DC'],
+            v_range
+        )
+        assert_pico2000_ok(res)
+
         res = ps2000.ps2000_set_channel(
             device.handle,
             picoEnum.PICO_CHANNEL['PICO_CHANNEL_B'],
-            False,
+            True,
             picoEnum.PICO_COUPLING['PICO_DC'],
             v_range
         )
@@ -155,9 +163,11 @@ def measure(n, v_range, name):
         
         for i in range(n):
             time_val, V_val = run()
-            if V_val[0] < V_val[-1]:
-                time_arr.append(time_val)
-                V_arr.append(V_val)
+            V_val = np.array(V_val)
+            if abs(np.min(V_val)) > abs(np.max(V_val)):
+                V_val = -V_val
+            time_arr.append(time_val)
+            V_arr.append(V_val)
                 
         final_t = []
         final_V = []
@@ -323,7 +333,7 @@ if __name__ == "__main__":
     
     for i in range(nr_of_loops):
         times, S, V = measure(100, v_range=V_range, name=f"2.5uA_gain_{i}")
-        #times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
+        times, S, SNR = FIR_filter(times, S, name=f"2.5uA_gain_{i}", raw_V=V)
         
         dI, distances = calc_radius(S=S, times=times)
         
