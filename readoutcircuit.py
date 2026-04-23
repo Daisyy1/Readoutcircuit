@@ -92,7 +92,7 @@ def measure(n, v_range, name):
         res = ps2000.ps2000_set_trigger(
             device.handle,
             picoEnum.PICO_CHANNEL['PICO_CHANNEL_A'],
-            c_int16(500), # This value should be chosen between +32767 and -32767, where the largest number is the max voltage of the chosen window size.
+            c_int16(2000), # This value should be chosen between +32767 and -32767, where the largest number is the max voltage of the chosen window size.
             0,
             -50,
             0
